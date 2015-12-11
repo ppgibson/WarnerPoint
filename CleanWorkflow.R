@@ -81,6 +81,8 @@
 
 
 #### LOOP THROUGH SPECIES ####
+# Set the transformation to use when running the models
+  trans.cur <- "base"  #One of {base, sqrt, log}
 
 # Create empty data frame to be filled - same column structure as lmloop
   bestmodels <- data.frame(species=character(), lambda=character(), n.occ=double(), model=character(), 
@@ -88,19 +90,22 @@
                            sr2.nag=double(), sr2.mf=double(), 
                            gu=double(), gt=double(), gpmax=double(), gchistat=double(), gpval=double(), 
                            gr2.nag=double(), gr2.mf=double(), 
-                           ochistat=double(), or2.nag=double())
+                           ochistat=double(), or2.nag=double(),
+                           transformation=character())
   
   bestmodels[1:nrow(spp.subset), 1:20] <- NA
   bestmodels$lambda  <- as.character(bestmodels$lambda)
   bestmodels$species <- as.character(bestmodels$species)
   bestmodels$model   <- as.character(bestmodels$model)
+  bestmodels$transformation <- as.character(bestmodels$transformation)
 
 
   # Call "picklambda" function for all spp  
   # !! to print pdfs, start the pdf device before running the loop
     for (i in 1:nrow(spp.subset)) {
       print(paste(i, spp.subset$species[i]))
-      out.cur <- picklambda(species=as.character(spp.subset$species[i]))
+      out.cur <- picklambda(species=as.character(spp.subset$species[i]),
+                            transformation=trans.cur)
       
       # print(out.cur$lmplot) #not needed when printing both plots together with grid.arrange
       
@@ -109,6 +114,7 @@
       #Re-run the models with the newly selected lambda in order to generate a plot of the model fit
       newspmodel <- calcmodels(sp.cur=bestmodels[i, 1], 
                                lm.cur=bestmodels[i, 2], 
+                               trans=trans.cur,
                                mod.type = model.type, 
                                exclude.130=FALSE)
       
