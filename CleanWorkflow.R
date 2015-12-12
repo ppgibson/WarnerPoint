@@ -1,6 +1,6 @@
 #### PREPARATION ####
 # First, run <Setup_Exponential.R> to set directories and libraries and read in data
-  source.with.encoding("Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_model\\WarnerPt_Analysis_RProj\\Setup_Exponential.R", 
+  source.with.encoding("Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\WarnerPt_Analysis_RProj\\Setup_Exponential.R", 
                         encoding="UTF-8")
 
 # Extra libraries
