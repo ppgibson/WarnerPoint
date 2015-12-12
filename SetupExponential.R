@@ -4,9 +4,9 @@
 
 # Define directory paths
 # R code
-  DirCode <- "Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\Code\\"
+  DirCode <- "Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\WarnerPt_Analysis_RProj\\"
 # Data 
-  DirData <- "Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\Data\\"
+  DirData <- "Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\WarnerPt_Analysis_RProj\\Data\\"
 # Output
   DirOut <- "Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\Output\\"
   
