@@ -1,6 +1,6 @@
 #### PREPARATION ####
 # First, run <Setup_Exponential.R> to set directories and libraries and read in data
-  source.with.encoding("Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\WarnerPt_Analysis_RProj\\Setup_Exponential.R", 
+  source.with.encoding("Z:\\asb\\BlackCanyon2015\\WarnerPoint\\Exponential_Model\\WarnerPt_Analysis_RProj\\SetupExponential.R", 
                         encoding="UTF-8")
 
 # Extra libraries
@@ -41,7 +41,7 @@
     veg.orig <- veg     #First, store a clean copy of veg...
   #   ##
 #     veg <- veg.gains  #...then, pick a veg dataset to use, gains or losses.
-    veg <- veg.loss
+    veg <- veg.gains
 #     veg <- veg.orig
   #   ##
 
@@ -52,9 +52,6 @@
     # Option 1: GAINS
     traits.gain <- merge(traits, gain.counts, by="species", all=TRUE)
     gain.spp <- traits.gain[(traits.gain$n.gain>=20), ]  
-                              traits.gain$n.samp>=50 &
-                              traits.gain$pct.gain>=0.05), ] 
-                              traits.gain$pct.gain <0.05), ]  #list of eligible spp for fitting a model on gains 
     spp.subset <- gain.spp
     model.type <- "gain"
 
