@@ -29,53 +29,25 @@
   bestmodels$model   <- as.character(bestmodels$model)
   bestmodels$transformation <- as.character(bestmodels$transformation)
 
-#   test <- data.frame(species=character(), transf=character())
-#   test[1:(3*nrow(spp.subset)), 1:2] <- NA
-#   test$species <- as.character(test$species)
-#   test$transf  <- as.character(test$transf)
-# # Set the transformation to use when running the models
-#   trans.cur <- "sqrt"
-# 
-# for(i in 1:nrow(spp.subset)) {
-#   print(spp.subset$species[i])
-#   
-#   for (j in 1:3){   #do the whole process three times, once for each transformation
-#     trans.cur <- trans.options[j]
-#     print(trans.cur)
-#     
-#     test[j+((i-1)*3), 1] <- as.character(spp.subset$species[i])
-#     test[j+((i-1)*3), 2] <- trans.cur
-#   }
-#   
-# } 
-#   for(i in 1:nrow(spp.subset)) {
-#     test[i+((j-1)*nrow(spp.subset)), 1] <- as.character(spp.subset$species[i])
-#     test[i+((j-1)*nrow(spp.subset)), 2] <- trans.cur
-#   }
-  
-  # Call "picklambda" function for all spp, using current transformation  
+
+# Call "picklambda" function for all spp, using current transformation  
   # !! to print pdfs, start the pdf device before running the loop
   for (i in 1:nrow(spp.subset)) {
-    print(paste(i, spp.subset$species[i]))
+    print(paste(i, spp.subset$species[i])) #output to keep track of how the model run is progressing.
     
-    # Clean list to save plots in (must be re-generated before each run of the j-loop)
-    gvec<-vector("list", length=3)
+    # Clean list in which to store plots (list must be re-generated before each run of the j-loop)
+    gvec <- vector("list", length=3)
     
-    for (j in 1:3) {
+    for (j in 1:3) {  #once for each transformation
       trans.cur <- trans.options[j]
-#       print(trans.cur)
       
+      # Call picklambda function
       out.cur <- picklambda(species=as.character(spp.subset$species[i]), 
                             transformation=trans.cur)
       
-      # print(out.cur$lmplot) #not needed when printing both plots together with grid.arrange
-      
+      # Store output in correct row of the compiling df
       bestmodels[j+((i-1)*3), 1:20] <- out.cur$spdata
       bestmodels[j+((i-1)*3), 21]   <- trans.cur
-      
-#       test[j+((i-1)*3), 1] <- as.character(spp.subset$species[i])
-#       test[j+((i-1)*3), 2] <- trans.cur
-  
       
       #Re-run the models with the newly selected lambda in order to generate a plot of the model fit
       newspmodel <- calcmodels(sp.cur=bestmodels[j+((i-1)*3), 1], 
@@ -84,33 +56,32 @@
                                mod.type = model.type, 
                                exclude.130=FALSE)
       
-      # Print the plot (or, comment this out to make the code run a bit faster)
-      # print(newspmodel$fitplot)  #this one isn't needed when printing both plots together with grid.arrange
-#       print(grid.arrange(newspmodel$fitplot, out.cur$lmplot, ncol=2))
+      # Arrange the model plot and lambda plot side by side
       twopanel <- arrangeGrob(newspmodel$fitplot, out.cur$lmplot, ncol=2)
 
-      # Save plot to plot list
+      # Save the two-pane plot to plot list
       gvec[[j]] <- twopanel
     }
     
+  # Arrange all six panels, two for each transformation, on a single pdf page (one page for each sp) 
   print(grid.arrange(gvec[[1]], gvec[[2]], gvec[[3]], ncol=1))
   }
 
-# To print a PDF: 
-  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Exp_Sqrt_AllLm_20occ.pdf", sep=""), 
-      width=14, height=6)
 
-  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Exp_AllTran_20occ.pdf", sep=""), 
+# To print a PDF: 
+  pdf(file=paste(DirOut, "MFPlots_Loss_Dyn_Exp_AllTran_20occ.pdf", sep=""), 
       width=14, height=18)
 
   #(run the for loop)
 
   dev.off()
 
+
 # To print a data file:
   write.csv(bestmodels, 
-            paste(DirOut, "MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""), 
+            paste(DirOut, "MFStats_Loss_Dyn_Exp_AllTran_20occ.csv", sep=""), 
             row.names=FALSE)
+
 
 # Some basic diagnostics:
   # How many models have R2.nag of at least 0.1?
