@@ -109,5 +109,42 @@
       ggtitle("Model fit (R2) vs selected lambda: Dynamic, PA, >=50")
     p + geom_segment(aes(x=factor(-3), xend=factor(-4.7), y=0.1, yend=0.1))
 
-# Merge 'bestmodels' output from various transformations
-test <- cbind(best.base.50[, c(1:4, 19, 20)], best.sqrt.50[, c(1:4, 19, 20)])
+## Compare results among the different transformations
+# Read in different versions of \bestmodels\
+  best.50 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Exp_AllTran_50occ.csv", sep=""))
+  bestmodels <- best.50
+  best.20 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  bestmodels <- best.20
+  best.gain <- read.csv(paste(DirOut, "MFStats_Gain_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  bestmodels <- best.gain
+  best.loss <- read.csv(paste(DirOut, "MFStats_Loss_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  bestmodels <- best.gain
+
+# Format the df
+  best.bysp <- group_by(bestmodels, species)
+  best.bysp <- select(best.bysp, species, lambda, n.occ, model, ochistat, or2.nag, transformation)
+  best.bysp <- best.bysp[!is.na(best.bysp$species), ]
+
+# Summarize by species
+  # or2
+  best.bysp$or2.nag <- as.numeric(best.bysp$or2.nag)
+  bestr2 <- summarize(best.bysp, 
+                         max.or2 = max(or2.nag))
+  bestr2 <- merge(best.bysp, bestr2, 
+                by.x=c("species", "or2.nag"), 
+                by.y=c("species", "max.or2"), 
+                all.x=FALSE, all.y=TRUE)
+  table(bestr2$transformation)  #number of species having its best or2 model fit in each transformation.
+  or2.wide <- dcast(best.bysp, species ~ transformation, value.var="or2.nag")
+
+  # chisq (which produces same results as or2)
+  best.bysp$ochistat <- as.numeric(best.bysp$ochistat)
+  bestchi <- summarize(best.bysp, 
+                         max.chi = max(ochistat))
+  bestchi <- merge(best.bysp, bestchi, 
+                by.x=c("species", "ochistat"), 
+                by.y=c("species", "max.chi"), 
+                all.x=FALSE, all.y=TRUE)
+  table(bestchi$transformation)
+
+###################################################
