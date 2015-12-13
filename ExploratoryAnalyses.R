@@ -457,6 +457,33 @@ ggplot(data=rawveg) +
   summary(pha.aov)
   TukeyHSD(pha.aov)
 
+#### SPP RICHNESS, Q.INUND, PCT COVER ####
+plotcov <- select(rawveg, year, plot, q.inund, num.spp.all, VEGETATIVE.COVER)   
+plotcov <- rename(plotcov, n.spp=num.spp.all, cover=VEGETATIVE.COVER)
+
+library(plot3D)
+points3D(x=plotcov$n.spp, y=plotcov$cover, z=plotcov$q.inund)
+# surf3D(x=plotcov$n.spp, y=plotcov$cover, z=plotcov$q.inund) #doesn't work
+
+#q.inund:n.spp
+ggplot(data=plotcov) +
+  geom_point(aes(x=q.inund, y=n.spp)) +
+  facet_wrap(~year)
+
+#q.inund:cover
+ggplot(data=plotcov) +
+  geom_point(aes(x=q.inund, y=cover)) +
+  facet_wrap(~year)
+
+#n.spp:cover
+ggplot(data=plotcov) +
+  geom_point(aes(x=n.spp, y=cover)) +
+  facet_wrap(~year)
+
+ggplot(data=rawveg) + 
+  geom_point(aes(x=num.spp.all, y=VEGETATIVE.COVER, color=as.factor(PHAARU))) + 
+  facet_wrap(~year)
+
 #### TRAITS AND EXPONENTIAL DECAY ####
 # Successional traits vs selected lambda
   lms <- select(bestmodels, species, lambda, n.occ)
