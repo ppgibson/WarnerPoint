@@ -27,9 +27,10 @@
 #                 Gaus models. 
 #
 
-#trans must be one of {base, sqrt, log}
+#'trans' must be one of {base, sqrt, log}
+#'weighting' must be one of {exp, lin}
 
-calcmodels <- function(sp.cur, lm.cur, trans, mod.type="p/a", exclude.130=FALSE) {  
+calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", exclude.130=FALSE) {  
   # Establish local environment, otherwise ggplot won't recognize variables defined within function
     localenv <- environment()
   
@@ -40,6 +41,16 @@ calcmodels <- function(sp.cur, lm.cur, trans, mod.type="p/a", exclude.130=FALSE)
     
     # How many times does the current sp occur?
     occ.cur <- traits$n.occ[traits$species==sp.cur]
+  
+    # Formatted 'lambda' for display in plots (default is exp plots, with an option for lin plots)
+    lm.disp <- paste("1e", round(log10(as.numeric(lm.cur)), 1), sep="")
+    weight.strength.type <- "lambda"
+    # For linear plots
+      if(weighting=="lin") {
+        lm.disp <- as.numeric(lm.cur)
+        weight.strength.type <- "rec.lngth"
+      }
+      
   
   # Combine current flow and veg data
     dat.cur <- merge(veg[, c("year", "plot", sp.cur)], flowhist[, c("year", "plot", flow.col)], 
@@ -59,7 +70,7 @@ calcmodels <- function(sp.cur, lm.cur, trans, mod.type="p/a", exclude.130=FALSE)
       rm(inf.ind)
   
   # Colname for desired transformation
-  hydro.col <- paste(trans, ".inundur", sep="")
+    hydro.col <- paste(trans, ".inundur", sep="")
 #   hydrovar.ind <- grep(pattern=trans, x=colnames(dat.cur))
  
   # Exclude P130, if specified
@@ -184,8 +195,8 @@ calcmodels <- function(sp.cur, lm.cur, trans, mod.type="p/a", exclude.130=FALSE)
     logplot <- base + 
       ylab("prob(presence)") + 
 #       coord_cartesian(xlim=c(-6, 0.5)) +   #to focus the plot on the main region, without the -15 point
-      ggtitle(paste(mod.type, "  ", sp.cur, " 
-     lm=1e", round(log10(as.numeric(lm.cur)), 1), 
+      ggtitle(paste(mod.type, "  ", sp.cur, "   ", weighting, " wts 
+     ", weight.strength.type, "=", lm.disp, 
                     ", n.occ=", occ.cur,
                     ", mod=", model.shape, ", X2=", round(ochistat, 2), 
                     ", R2=", round(or2.nag,2), sep=""))  
