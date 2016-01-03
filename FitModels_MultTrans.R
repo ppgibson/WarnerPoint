@@ -13,6 +13,8 @@
 #### LOOP THROUGH SPECIES AND TRANSFORMATIONS ####
 # Possible transformation variables (note more could be added later...)
   trans.options <- c("base", "sqrt", "log")
+# Weighting of inundation durations (**choose one)
+  weighting.cur <- "lin"
 
 # Create empty data frame to be filled - same column structure as lmloop
   bestmodels <- data.frame(species=character(), lambda=character(), n.occ=double(), model=character(), 
@@ -43,7 +45,8 @@
       
       # Call picklambda function
       out.cur <- picklambda(species=as.character(spp.subset$species[i]), 
-                            transformation=trans.cur)
+                            transformation=trans.cur, 
+                            weights=weighting.cur)
       
       # Store output in correct row of the compiling df
       bestmodels[j+((i-1)*3), 1:20] <- out.cur$spdata
@@ -53,7 +56,8 @@
       newspmodel <- calcmodels(sp.cur=bestmodels[j+((i-1)*3), 1], 
                                lm.cur=bestmodels[j+((i-1)*3), 2],
                                trans=trans.cur, 
-                               mod.type = model.type, 
+                               weighting=weighting.cur, 
+                               mod.type=model.type, 
                                exclude.130=FALSE)
       
       # Arrange the model plot and lambda plot side by side
@@ -69,7 +73,7 @@
 
 
 # To print a PDF: 
-  pdf(file=paste(DirOut, "MFPlots_Loss_Dyn_Exp_AllTran_20occ.pdf", sep=""), 
+  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Lin_AllTran_50occ.pdf", sep=""), 
       width=14, height=18)
 
   #(run the for loop)
@@ -79,7 +83,7 @@
 
 # To print a data file:
   write.csv(bestmodels, 
-            paste(DirOut, "MFStats_Loss_Dyn_Exp_AllTran_20occ.csv", sep=""), 
+            paste(DirOut, "MFStats_PA_Dyn_Lin_AllTran_50occ.csv", sep=""), 
             row.names=FALSE)
 
 
