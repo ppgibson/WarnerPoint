@@ -59,11 +59,13 @@
 #   colnames(lesscommon.spp)[1] <- "n.occ"
 
 
-## 2. Inundation durations
-##    For now, use previously-calculated inundur at 15 standard decay rates
-  flowhist.sm  <- read.csv("Inundurations_lambdas_allyrs_small.csv")
-  flowhist.lg  <- read.csv("Inundurations_lambdas_allyrs_large.csv")
-  flowhist.all <- read.csv("Inundurations_lambdas_allyrs_all.csv")
+  # Read in inundation durations during <CleanWorkflow> instead, to make it
+  # easier to track which inundation duration file is being used. 
+# ## 2. Inundation durations
+# ##    For now, use previously-calculated inundur at 15 standard decay rates
+#   flowhist.sm  <- read.csv("Inundurations_lambdas_allyrs_small.csv")
+#   flowhist.lg  <- read.csv("Inundurations_lambdas_allyrs_large.csv")
+#   flowhist.all <- read.csv("Inundurations_lambdas_allyrs_all.csv")
 
   
 ## 3. Plan traits

@@ -16,11 +16,11 @@
 
 # Generate a vector of the (pre-determined) lambda values 
   # !Depends on which flow history data is being used! Change the 
-  #  source flowhist df as necessary. 
-  flowhist <- flowhist.all   #!!Or, change this to flowhist.sm, or something else. 
-    rm(flowhist.all)
-    rm(flowhist.sm)
-    rm(flowhist.lg)
+  #  source of \flowhist\ df as necessary. 
+  flowhist.exp <- read.csv("Inundurations_lambdas_allyrs_all.csv") #Inundation durations calculated with exponential weighting.
+  flowhist.lin <- read.csv("Inundurations_linear_allyrs.csv")      #Inundation durations calculated with linear weighting.
+  flowhist <- flowhist.lin   #!!Choose one (or read in/replace it with something else). 
+
   lambdas <- as.numeric(substr(colnames(flowhist), 9, 21))[5:ncol(flowhist)]
   
 # Set the default model type: presence/absence
@@ -28,6 +28,7 @@
 
 # Generate a df of selected species set; filter \traits\ by desired characteristic 
   spp.subset <- filter(traits, n.occ>=50)
+  spp.subset <- filter(traits, n.occ<50 & n.occ>=20)
   # Or, just count number of spp with desired traits
   sum(traits$n.occ >= 50)
   sum(traits$annual.tend=="Yes", na.rm=TRUE)  
@@ -67,12 +68,12 @@
 
 #### TEST CODE ####
 # calcmodels (fit one sp/lm combination)
-  calcmod.test <- calcmodels(sp.cur="ANITEC", lm.cur=lambdas[5], trans="sqrt", mod.type=model.type, exclude.130=FALSE)
+  calcmod.test <- calcmodels(sp.cur="CARLAN", lm.cur=lambdas[10], trans="log", weighting="lin", mod.type=model.type, exclude.130=FALSE)
     calcmod.test$fitplot 
     calcmod.test$param
 
 # picklambda (try all lm values for one sp, find the best one)
-  picklm.test <- picklambda(species="ANITEC", transformation="sqrt")
+  picklm.test <- picklambda(species="CARLAN", transformation="log", weights="lin")  #!note that changing the 'weights' argument only changes how the plot is labeled - in order to change underlying data, you need to change the data stored as \flowhist\.
     picklm.test$lmplot
     picklm.test$spdata
 
