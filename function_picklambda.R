@@ -21,7 +21,7 @@
 #
 
 #transformation must be one of {base, sqrt, log}
-#weighting must be one of {exp[default], lin}
+#weights must be one of {exp[default], lin}
 picklambda <- function(species, transformation, weights) {
   # Environment
     localenv <- environment()
@@ -59,7 +59,7 @@ picklambda <- function(species, transformation, weights) {
     lm.disp <- paste("1e", round(log10(as.numeric(spdata.cur[2])), 1), sep="")
     weight.strength.type <- "lambda"
     # For linear plots
-      if(weighting=="lin") {
+      if(weights=="lin") {
         lm.disp <- as.numeric(spdata.cur[2])
         weight.strength.type <- "rec.lngth"
       }
