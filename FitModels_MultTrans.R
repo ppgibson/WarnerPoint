@@ -65,7 +65,7 @@
 
       # Save the two-pane plot to plot list
       gvec[[j]] <- twopanel
-    }
+   }
     
   # Arrange all six panels, two for each transformation, on a single pdf page (one page for each sp) 
   print(grid.arrange(gvec[[1]], gvec[[2]], gvec[[3]], ncol=1))
@@ -73,7 +73,7 @@
 
 
 # To print a PDF: 
-  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Lin_AllTran_50occ.pdf", sep=""), 
+  pdf(file=paste(DirOut, "MFPlots_Loss_Dyn_Lin_AllTran_20occ.pdf", sep=""), 
       width=14, height=18)
 
   #(run the for loop)
@@ -83,28 +83,34 @@
 
 # To print a data file:
   write.csv(bestmodels, 
-            paste(DirOut, "MFStats_PA_Dyn_Lin_AllTran_50occ.csv", sep=""), 
+            paste(DirOut, "MFStats_PA_Dyn_Lin_AllTran_20occ.csv", sep=""), 
             row.names=FALSE)
 
 
 # Some basic diagnostics:
   # How many models have R2.nag of at least 0.1?
-    sum(bestmodels$or2.nag>=0.1)
+    sum(bestmodels$or2.nag>=0.1 & bestmodels$transformation=="log")
     nrow(bestmodels) #...out of how many possible?
   # Sig vs Gauss
     table(bestmodels$model)
     table(bestmodels$model[bestmodels$or2.nag>0.1])
   # What are the best fit models?
-    tail(select(arrange(bestmodels, or2.nag), species, or2.nag))
+    tail(select(arrange(bestmodels, or2.nag), species, or2.nag, transformation))
   # What are the lambda values of the good (i.e., R2>0.1) models?
-    table(log10(as.numeric(bestmodels$lambda)))
-    table(log10(as.numeric(bestmodels$lambda)[bestmodels$or2.nag>=0.1]))
+    table((as.numeric(bestmodels$lambda)))
+    table((as.numeric(bestmodels$lambda)[bestmodels$or2.nag>=0.1]))
     log10(as.numeric(bestmodels$lambda[bestmodels$or2.nag>=0.1]))
   # Histogram of selected lambdas
     ggplot(data=bestmodels[bestmodels$or2.nag>0.1, ], 
            aes(x=factor(round(log10(as.numeric(lambda)),1)))) +
       geom_histogram() +
       xlab("log10(lambda)")
+
+    ggplot(data=bestmodels, 
+           aes(x=as.numeric(lambda))) +
+      geom_histogram() +
+      xlab("log10(lambda)")
+
   # Plot of R2 vs selected lambda
    p <- ggplot(data=bestmodels, 
            aes(x=factor(round(log10(as.numeric(lambda)),1), ordered=TRUE)) ) +
@@ -115,7 +121,7 @@
 
 ## Compare results among the different transformations
 # Read in different versions of \bestmodels\
-  best.50 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Exp_AllTran_50occ.csv", sep=""))
+  best.50 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Lin_AllTran_50occ.csv", sep=""))
   bestmodels <- best.50
   best.20 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""))
   bestmodels <- best.20
@@ -151,4 +157,50 @@
                 all.x=FALSE, all.y=TRUE)
   table(bestchi$transformation)
 
+## Compare results among the different weighting schemes
+# Read in different versions of \bestmodels\
+  # Exponential
+  best.50.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_50occ.csv", sep=""))
+  best.20.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  best.gain.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_Gain_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  best.loss.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_Loss_Dyn_Exp_AllTran_20occ.csv", sep=""))
+    best.loss.exp <- filter(best.loss.exp, !is.na(species))  #not sure why R reads an extra 23 rows
+  #Linear
+  best.50.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_PA_Dyn_Lin_AllTran_50occ.csv", sep=""))
+  best.20.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_PA_Dyn_Lin_AllTran_20occ.csv", sep=""))
+  best.gain.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_Gain_Dyn_Lin_AllTran_20occ.csv", sep=""))
+  best.loss.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_Loss_Dyn_Lin_AllTran_20occ.csv", sep=""))
+
+  comptrans <- merge(best.loss.lin[, c("species", "or2.nag", "transformation")],
+                     best.loss.exp[, c("species", "or2.nag", "transformation")], 
+                     by=c("species", "transformation"), all=TRUE)
+  comptrans <- rename(comptrans, lin=or2.nag.x, exp=or2.nag.y)
+  comptrans <- mutate(comptrans, lin.diff = as.numeric(lin) - as.numeric(exp))
+  comptrans <- mutate(comptrans, lin.better = (lin.diff>0))
+  # For how many spp/trans does linear produce the better fin?
+#   sum(comptrans$lin.diff > 0)  #59
+#   sum(comptrans$lin.diff < 0)  #28
+#   table(comptrans$lin.better)
+  table(list(comptrans$transformation, comptrans$lin.better))
+  ggplot(data=comptrans) + 
+    geom_point(aes(x=transformation, y=lin.diff)) +
+    geom_hline(aes(y=0), color="purple")
+
+  #Overall which is best (for each sp), regardless of transformation?
+  # Convert to full long form
+  comptrans.l <- melt(comptrans, id.vars=c("species", "transformation"), variable.name="weights", value.name="or2.nag")
+  comp.l.bysp <- group_by(comptrans.l, species)
+  compwts <- filter(comp.l.bysp, or2.nag==max(or2.nag))
+  table(compwts$weights)  #weights only
+  table(compwts$transformation) #trans only
+  table(list(compwts$weights, compwts$transformation)) #wts*trans
+
+## Compare 'lambda' with successional traits (use P/A, 50 occ for now)
+  n.years.50 <- best.50[best.50$transformation=="log", c("species", "lambda")]
+  n.years.20 <- best.20[best.20$transformation=="log", c("species", "lambda")]
+  n.years <- rbind(n.years.50, n.years.20)
+  lin.traits <- merge(succ.tr, n.years, by="species", all.x=FALSE, all.y=TRUE) #use succ.tr from ExploratoryAnalyses.R
+
+ggplot(data=lin.traits) + geom_point(aes(x=succ.ind, y=as.numeric(lambda), color=rhizomes), size=3)
+ggplot(data=lin.traits) + geom_point(aes(x=rhizomes, y=as.numeric(lambda), color=rhizomes), size=3) 
 ###################################################
