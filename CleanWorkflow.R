@@ -19,7 +19,10 @@
   #  source of \flowhist\ df as necessary. 
   flowhist.exp <- read.csv("Inundurations_lambdas_allyrs_all.csv") #Inundation durations calculated with exponential weighting.
   flowhist.lin <- read.csv("Inundurations_linear_allyrs.csv")      #Inundation durations calculated with linear weighting.
-  flowhist <- flowhist.lin   #!!Choose one (or read in/replace it with something else). 
+  flowhist.sea <- read.csv("Inundurations_seasonal_allyrs_IncCurSeas.csv")  #Inundation durations calculated with seasonal exponential weigthting, current season is included.
+#   flowhist.sea.nocur <- read.csv("Inundurations_seasonal_allyrs_NoCurSeas.csv")
+  flowhist <- flowhist.sea   #!!Choose one (or read in/replace it with something else). 
+#   flowhist <- flowhist.sea.nocur
 
   lambdas <- as.numeric(substr(colnames(flowhist), 9, 21))[5:ncol(flowhist)]
   
@@ -42,8 +45,8 @@
     veg.orig <- veg     #First, store a clean copy of veg...
   #   ##
 #     veg <- veg.gains  #...then, pick a veg dataset to use, gains or losses.
-    veg <- veg.gains
-#     veg <- veg.orig
+#     veg <- veg.loss
+    veg <- veg.orig
   #   ##
 
     # !! for losses only:
@@ -68,12 +71,14 @@
 
 #### TEST CODE ####
 # calcmodels (fit one sp/lm combination)
-  calcmod.test <- calcmodels(sp.cur="CARLAN", lm.cur=lambdas[10], trans="log", weighting="lin", mod.type=model.type, exclude.130=FALSE)
+  calcmod.test <- calcmodels(sp.cur="CARLAN", lm.cur=lambdas[32], 
+                             trans="base", weighting="seas", 
+                             mod.type=model.type, exclude.130=FALSE)
     calcmod.test$fitplot 
     calcmod.test$param
 
 # picklambda (try all lm values for one sp, find the best one)
-  picklm.test <- picklambda(species="CARLAN", transformation="log", weights="lin")  #!note that changing the 'weights' argument only changes how the plot is labeled - in order to change underlying data, you need to change the data stored as \flowhist\.
+  picklm.test <- picklambda(species="CARLAN", transformation="base", weights="seas")  #!note that changing the 'weights' argument only changes how the plot is labeled - in order to change underlying data, you need to change the data stored as \flowhist\.
     picklm.test$lmplot
     picklm.test$spdata
 
