@@ -20,8 +20,7 @@
 #   [3] lmdata = a df of model parameters/stats for all lambda values
 #
 
-#transformation must be one of {base, sqrt, log}
-#weights must be one of {exp[default], lin}
+#weights must be one of {exp[default], lin, seas}
 picklambda <- function(species, transformation, weights) {
   # Environment
     localenv <- environment()
@@ -79,7 +78,7 @@ picklambda <- function(species, transformation, weights) {
                     "  duration=", dur.cur, "  trans=", transformation, sep="")) 
 
     # Add log-scale x-axis for exponential weights
-      if (weights=="exp") {
+      if (weights!="lin") {
         lambdaplot <- lambdaplot + scale_x_continuous(trans=log10_trans())
       }
 
