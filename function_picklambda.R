@@ -21,7 +21,7 @@
 #
 
 #weights must be one of {exp[default], lin, seas}
-picklambda <- function(species, transformation, weights) {
+picklambda <- function(species, transformation, weights, max.q=12000) {
   # Environment
     localenv <- environment()
     
@@ -42,7 +42,9 @@ picklambda <- function(species, transformation, weights) {
   # Loop through the different lambda values (for a single species)
     for (i in 1:length(lambdas)) {
 #       print(paste(i, colnames(flowhist)[i+3]))
-      out.cur <- calcmodels(sp.cur=species, lm.cur=lambdas[i], trans=transformation, weighting=weights, exclude.130=FALSE)
+      out.cur <- calcmodels(sp.cur=species, lm.cur=lambdas[i], 
+                            trans=transformation, weighting=weights, 
+                            max.q = max.q)
 #         print(out.cur$fitplot)
       
       lmloop[i, ] <- out.cur$param

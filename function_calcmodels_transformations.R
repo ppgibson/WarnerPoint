@@ -29,8 +29,12 @@
 
 #'trans' must be one of {base, sqrt, log}
 #'weighting' must be one of {exp, lin} 
+# use 'max.q' to establish what plots should be excluded; set to 12000 to include all plots;
+#   11000 will exclude the top plot (P130);
+#    8000 will exclude the top five plots;
+#    other values can be used also, of course.  
 
-calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", exclude.130=FALSE) {  
+calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", max.q=12000) {  
   # Establish local environment, otherwise ggplot won't recognize variables defined within function
     localenv <- environment()
   
@@ -52,11 +56,15 @@ calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", e
       }
   
   # Combine current flow and veg data
-    dat.cur <- merge(veg[, c("year", "plot", sp.cur)], flowhist[, c("year", "plot", flow.col)], 
+    dat.cur <- merge(veg[, c("year", "plot", sp.cur)], flowhist[, c("year", "plot", flow.col, "q.inund")], 
                      by=c("year", "plot"), all=TRUE)
     colnames(dat.cur)[3:4] <- c("presence", "base.inundur")
     dat.cur <- filter(dat.cur, !is.na(presence))  #eliminate NA rows (should apply only to gain/loss models)
 
+  # Remove data for any plots excluded by q.inund critera
+  # (i.e., remove dry outlier plots if desired)
+    dat.cur <- filter(dat.cur, q.inund < max.q)
+ 
   # Calculate transformations 
     dat.cur <- mutate(dat.cur, 
                       sqrt.inundur=((base.inundur)^0.5), 
@@ -70,11 +78,6 @@ calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", e
   
   # Colname for desired transformation
     hydro.col <- paste(trans, ".inundur", sep="")
- 
-  # Exclude P130, if specified
-    if(exclude.130==TRUE) {
-      dat.cur <- filter(dat.cur, plot!="P130")
-    }
  
   # Base plot: occ vs inundur
     base <- ggplot(data=dat.cur, environment=localenv, aes_string(x=hydro.col)) +
