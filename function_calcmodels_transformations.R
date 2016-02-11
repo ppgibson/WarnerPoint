@@ -199,8 +199,9 @@ calcmodels <- function(sp.cur, lm.cur, trans, weighting="exp", mod.type="p/a", m
       ggtitle(paste(mod.type, "  ", sp.cur, "   ", weighting, " wts 
      ", weight.strength.type, "=", lm.disp, 
                     ", n.occ=", occ.cur,
-                    ", mod=", model.shape, ", X2=", round(ochistat, 2), 
-                    ", R2=", round(or2.nag,2), sep=""))  
+                    ", mod=", model.shape, 
+#                     ", X2=", round(ochistat, 2), 
+                    ", R2=", round(or2.nag,3), ", max.q=", max.q, sep=""))  
   
 
 #     if(retaingaus==TRUE) {
