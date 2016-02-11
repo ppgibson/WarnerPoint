@@ -51,7 +51,7 @@
 
 # Format the df
   best.bysp <- group_by(bestmodels, species)
-  best.bysp <- select(best.bysp, species, lambda, n.occ, model, ochistat, or2.nag, transformation)
+  best.bysp <- select(best.bysp, species, lambda, n.occ, model, ochistat, or2.nag, threshold)
   best.bysp <- best.bysp[!is.na(best.bysp$species), ]
 
 # Summarize by species
@@ -63,7 +63,7 @@
                 by.x=c("species", "or2.nag"), 
                 by.y=c("species", "max.or2"), 
                 all.x=FALSE, all.y=TRUE)
-  table(bestr2$transformation)  #number of species having its best or2 model fit in each transformation.
+  table(bestr2$threshold)  #number of species having its best or2 model fit in each transformation.
   or2.wide <- dcast(best.bysp, species ~ transformation, value.var="or2.nag")
 
   # chisq (which produces same results as or2)
@@ -75,6 +75,11 @@
                 by.y=c("species", "max.chi"), 
                 all.x=FALSE, all.y=TRUE)
   table(bestchi$transformation)
+
+  # Avg R2 across all spp at each threshold/trans
+  bestmodels$or2.nag <- as.numeric(bestmodels$or2.nag)
+  bythr <- split(bestmodels$or2.nag, f=list(bestmodels$threshold))
+  sapply(X=bythr, FUN=mean)
 
 #### COMPARE SEASONAL WITH AND WITHOUT CURRENT SEASON ####
 # Read in different versions of \bestmodels\
@@ -114,8 +119,8 @@
 #### COMPARE WEIGHTING SCHEMES ####
 # Read in different versions of \bestmodels\
   # Exponential
-  best.50.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_50occ.csv", sep=""))
-  best.20.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""))
+  best.50.exp.log <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_50occ.csv", sep=""))
+  best.20.exp.log <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_PA_Dyn_Exp_AllTran_20occ.csv", sep=""))
   best.exp <- rbind(best.50.exp, best.20.exp)
   best.exp$wt <- "exp"
   best.gain.exp <- read.csv(paste(DirOut, "ExpWeighting_AllTrans_ManyLambdas\\MFStats_Gain_Dyn_Exp_AllTran_20occ.csv", sep=""))
@@ -129,18 +134,22 @@
   best.gain.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_Gain_Dyn_Lin_AllTran_20occ.csv", sep=""))
   best.loss.lin <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_Loss_Dyn_Lin_AllTran_20occ.csv", sep=""))
   # Seasonal exp
-  best.50.seas <- best.50
-  best.20.seas <- best.20
-  best.seas <- rbind(best.50.seas, best.20.seas)
-  best.seas$wt <- "sea.inccur"
-  best.gain.seas <- best.gain
-  best.loss.seas <- best.loss
-  best.nocur.50
-  best.nocur.20
-  best.seas.nocur <- rbind(best.nocur.50, best.nocur.20)
+  best.50.seas <- read.csv(paste(DirOut, "SeasonalWeighting_AllTrans\\MFStats_PA_Dyn_Seas_AllTran_50occ_IncCur.csv", sep=""))
+  best.20.seas <- read.csv(paste(DirOut, "SeasonalWeighting_AllTrans\\MFStats_PA_Dyn_Seas_AllTran_20occ_IncCur.csv", sep=""))
+  best.seas.cur <- rbind(best.50.seas, best.20.seas)
+  best.seas.cur$wt <- "sea.cur"
+  
+  best.50.nocur <- read.csv(paste(DirOut, "SeasonalWeighting_AllTrans\\MFStats_PA_Dyn_Seas_AllTran_50occ_NoCur.csv", sep=""))
+  best.20.nocur <- read.csv(paste(DirOut, "SeasonalWeighting_AllTrans\\MFStats_PA_Dyn_Seas_AllTran_20occ_NoCur.csv", sep=""))
+  best.seas.nocur <- rbind(best.50.nocur, best.20.nocur)
   best.seas.nocur$wt <- "sea.nocur"
 
 # Combine relevant data
+  # Compare R2 across all models
+  allmod <- rbind(best.exp, best.lin, best.seas.cur, best.seas.nocur)
+  table(list)
+
+  # Compare two df side by side
   comptrans <- merge(best.loss.seas[, c("species", "or2.nag", "transformation")],
                      best.loss.exp[, c("species", "or2.nag", "transformation")], 
                      by=c("species", "transformation"), all=TRUE)
@@ -160,27 +169,34 @@
 #### OVERALL STATS ####
   #Overall which is best (for each sp), regardless of transformation?
   # Convert to full long form
-  comptrans.l <- melt(comptrans, id.vars=c("species", "transformation"), variable.name="weights", value.name="or2.nag")
-  comp.l.bysp <- group_by(comptrans.l, species)
+#   comptrans.l <- melt(comptrans, id.vars=c("species", "transformation"), variable.name="weights", value.name="or2.nag")
+  comp.l.bysp <- group_by(allmod, species)
   compwts <- filter(comp.l.bysp, or2.nag==max(or2.nag))
-  table(compwts$weights)  #weights only
-  table(compwts$transformation) #trans only
-  table(list(compwts$weights, compwts$transformation)) #wts*trans
+  table(compwts$wt)  #weights only
+  table(compwts$trans) #trans only
+  table(list(compwts$wt, compwts$trans)) #wts*trans
+
+  # For a given weight, which transformation produces peak fits
+  temp <- filter(allmod, wt=="lin")
+  compwts <- filter(group_by(temp, species), or2.nag==max(or2.nag))
+  table(compwts$trans)
 
 # Compare different weights
- compwts <- rbind(best.exp, best.lin, best.seas, best.seas.nocur)
+ compwts <- rbind(best.exp, best.lin, best.seas.cur, best.seas.nocur)
   compwts.orig <- compwts
-  compwts <- filter(compwts.orig, transformation=="sqrt")
+  compwts <- filter(allmod, trans=="sqrt")
   comp.l.bysp <- group_by(compwts, species)
   compare <- filter(comp.l.bysp, or2.nag==max(or2.nag))
   table(compare$wt)  #weights only
-  table(compare$transformation) #trans only
+  table(compare$trans) #trans only
   table(list(compare$wt, compare$transformation)) #wts*trans
 
 # Calculate mean r2.nag by different groups
-  compwts.list <- split(compwts, f=list(compwts$transformation))
-  sapply(X=compwts.list, function(x) median(x$or2.nag))
-  matrix(sapply(X=compwts.list, function(x) median(x$or2.nag)), nrow=4)
+#   compwts.temp <- filter(compwts, wt=="exp")
+  compwts.temp <- allmod 
+  compwts.list <- split(compwts.temp, f=list(compwts.temp$trans))
+  sapply(X=compwts.list, function(x) mean(x$or2.nag))
+  matrix(sapply(X=compwts.list, function(x) mean(x$or2.nag)), nrow=2)
 
 #### SUCCESSIONAL TRAITS ####
 ## Compare 'lambda' with successional traits (use P/A, 50 occ for now)
@@ -192,8 +208,48 @@
   # Seasonal vs traits, use sqrt trans
   seas.traits <- filter(best.seas, transformation=="sqrt")
   seas.traits <- merge(seas.traits, succ.tr, by="species", all.x=TRUE, all.y=FALSE)
+  # best fit lambdas vs traits, use filter by trans and wt
+  seas.traits <- filter(best.lin.sqrt, threshold==8000)
+  seas.traits <- merge(seas.traits, succ.tr, by="species", all.x=TRUE, all.y=FALSE)
+
 
 ggplot(data=seas.traits) + geom_point(aes(x=succ.ind, y=as.numeric(lambda), color=rhizomes), size=3)
-ggplot(data=seas.traits) + geom_point(aes(x=height, y=as.numeric(lambda), color=rhizomes), size=3) + coord_cartesian(xlim=c(0,20))
+ggplot(data=seas.traits) + geom_point(aes(x=rhizomes, y=as.numeric(lambda), color=rhizomes), size=3) + 
+  coord_cartesian(xlim=c(0,20))
 
 ###################################
+## Comparing weights/transformations when outlier plots are excluded.
+# exp log
+  best.50.exp.log <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Exp_LogTran_Outliers_50occ.csv", sep=""))
+  best.20.exp.log <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Exp_LogTran_Outliers_20occ.csv", sep=""))
+  best.exp.log <- rbind(best.50.exp.log, best.20.exp.log)
+  best.exp.log$wt    <- "exp"
+  best.exp.log$trans <- "log"
+
+# exp sqrt
+  best.50.exp.sqrt <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Exp_SqrtTran_Outliers_50occ.csv", sep=""))
+  best.20.exp.sqrt <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Exp_SqrtTran_Outliers_20occ.csv", sep=""))
+  best.exp.sqrt <- rbind(best.50.exp.sqrt, best.20.exp.sqrt)
+  best.exp.sqrt$wt    <- "exp"
+  best.exp.sqrt$trans <- "sqrt"
+
+# lin log
+  best.50.lin.log <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Lin_LogTran_Outliers_50occ.csv", sep=""))
+  best.20.lin.log <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Lin_LogTran_Outliers_20occ.csv", sep=""))
+  best.lin.log <- rbind(best.50.lin.log, best.20.lin.log)
+  best.lin.log$wt    <- "lin"
+  best.lin.log$trans <- "log"
+
+# lin sqrt
+  best.50.lin.sqrt <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Lin_SqrtTran_Outliers_50occ.csv", sep=""))
+  best.20.lin.sqrt <- read.csv(paste(DirOut, "OutlierDryPlots\\MFStats_PA_Dyn_Lin_SqrtTran_Outliers_20occ.csv", sep=""))
+  best.lin.sqrt <- rbind(best.50.lin.sqrt, best.20.lin.sqrt)
+  best.lin.sqrt$wt    <- "lin"
+  best.lin.sqrt$trans <- "sqrt"
+
+# all together 
+  allmod <- rbind(best.exp.log, best.exp.sqrt,
+                  best.lin.log, best.lin.sqrt)
+  allmod <- filter(allmod, threshold==8000)  #use only outlier-excluded models
+  colnames(allmod)
+  allmod <- allmod[, c(1:3, 20:23)]
