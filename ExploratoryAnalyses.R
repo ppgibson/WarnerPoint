@@ -4,6 +4,17 @@
   cover <- rawveg[, c("year", "plot", "elevation", "q.inund", "VEGETATIVE.COVER")]
   cover <- rename(cover, cover=VEGETATIVE.COVER)
   
+  # Add a percentile rank column based on q.inund to gauge which plots are wettest/driest
+    # First get a separte df with only one record per plot
+    plot.qs <- filter(cover, year==1990)
+    plot.qs <- mutate(plot.qs, q.rank=rank(q.inund), q.rank.pct=round(100*(rank(q.inund)/length(q.inund)), 0) ) 
+    # Now merge back in with the main data
+    cover <- merge(cover, plot.qs[, c("plot", "q.rank", "q.rank.pct")], by="plot", all=TRUE)
+    rm(plot.qs)
+
+  # Replace 'negative' cover values with NAs
+    cover$cover[cover$cover<0] <- NA 
+  
 # Across the whole study area
   # As an average: (which is equivalent to sum of each plot coverage)
   by.yr <- group_by(cover, year)
@@ -72,18 +83,20 @@
     sum(trends.cov$coef<0)  #56 of 133 (42%) have a negative trend (one plot has no trend)
   
   # How many plots have a 'significant' linear trend?
-    sum(trends.cov$pval<0.05)  #1 of 133 plots, <1%...but of course it's hard to get "significance" with 5 data pts.
+    sum(trends.cov$pval<0.1)  #1 of 133 plots, <1%...but of course it's hard to get "significance" with 5 data pts.
       hist(trends.cov$pval)
     sum(trends.cov$r2>0.5)     #23 of 133 plots have an r2 > 50%
       sum(trends.cov$r2>0.5 & trends.cov$coef>0)  #...of which 12 have a positive trend (and 14 have a neg trend)
 
-  # Largest R2 values  
+  # Largest R2 values
     filter(trends.cov, r2>0.6) -> temp
     ggplot(data=cover[cover$plot %in% temp$plot, ]) + 
       geom_point(aes(x=year, y=cover)) + 
-      geom_smooth(method=lm, aes(x=year, y=cover), linetype=2, se=FALSE) + 
+      geom_smooth(method=lm, aes(x=year, y=cover), linetype=2, se=FALSE, color="black", size=0.5) + 
+      geom_text(aes(x=1994, y=15, label=paste("inund.q = ", round(q.inund, 0), sep=""))) + 
+      geom_text(aes(x=1994, y=3,  label=paste("pct.rank = ", q.rank.pct, sep=""))) + 
       facet_wrap(~ plot)
-  
+
   # Largest b1 coefficient (pos or neg)
     arrange(trends.cov, abs(coef)) -> test
     tail(test$plot, 9) -> str.plots
@@ -107,12 +120,24 @@
   # Again, look for associations with elevation/inundur
     # Merge in plot data
       trends.cov <- merge(trends.cov, cover[cover$year==1990, c("plot", "elevation", "q.inund")])
+      # Index describing whether trends (such as it may be) is pos or neg
+      trends.cov$trend.dir <- trends.cov$coef>0
     # Strength of trend (R2) vs q.inund
       ggplot(data=trends.cov, aes(x=q.inund, y=r2)) + geom_point()
       ggplot(data=trends.cov, aes(x=elevation, y=r2)) + geom_point()
     # Direction and strength of trend vs q.inund
       ggplot(data=trends.cov, aes(x=q.inund, y=coef)) + geom_point()
       ggplot(data=trends.cov, aes(x=elevation, y=coef)) + geom_point()
+    # Direction of trend vs q.inund, for plots with high r2
+      ggplot(data=trends.cov[trends.cov$r2>=0.5, ], aes(x=q.inund, y=coef)) + 
+        geom_point(aes(fill=r2), size=3, shape=21) + 
+        scale_fill_gradientn(colors=rainbow(4)) +
+        ylab("Slope coefficient of plot total cover vs. year")
+      ggplot(data=trends.cov[trends.cov$r2>=0.5, ], aes(x=trend.dir, y=q.inund)) + 
+        geom_point(aes(fill=abs(coef)), size=3, shape=21) + 
+        scale_fill_gradientn(colors=rainbow(4), name="abs(Slope)") + 
+        scale_x_discrete(labels=c("Negative", "Positive")) +
+        xlab("Direction of plot trend in total cover")
     # Num pos/neg changes in cover as a function of q.inund
       ggplot(data=trends.cov, aes(x=q.inund, y=n.pos)) + geom_point()
       ggplot(data=trends.cov, aes(x=factor(n.pos), y=q.inund)) + geom_point()
@@ -141,17 +166,17 @@ colnames(changes.cov) <- c("plot", "d1994", "d2001", "d2006", "d2013")
   
   # Now plot CHANGE vs q.inund, year by year
   ggplot(data=changes.l) +
-  geom_point(aes(x=q.inund, y=cover.change)) + 
-  geom_hline(aes(yintercept=0), linetype="dashed") + 
-  facet_wrap(~year) + 
-  ggtitle("CHANGES in percent cover vs inundating discharge")
+    geom_point(aes(x=q.inund, y=cover.change)) + 
+    geom_hline(aes(yintercept=0), linetype="dashed") + 
+    facet_wrap(~year) + 
+    ggtitle("CHANGES in percent cover vs inundating discharge")
 
   # What if we just look at actual pct cover rather than change in pct cover?
   ggplot(data=cover[cover$q.inund<6000, ]) +
-  geom_point(aes(x=q.inund, y=cover)) + 
-#   geom_hline(aes(yintercept=0), linetype="dashed") + 
-  facet_wrap(~year) + 
-  ggtitle("Percent cover vs inundating discharge")
+    geom_point(aes(x=q.inund, y=cover)) + 
+    #   geom_hline(aes(yintercept=0), linetype="dashed") + 
+    facet_wrap(~year) + 
+    ggtitle("Percent cover vs inundating discharge")
 
   # Need to assess flow history: use \raw.flowdata\ from <Exp_InundationDurations.R>
   recent.flows <- filter(raw.flowdata, wyear>=1986)
@@ -188,6 +213,12 @@ colnames(changes.cov) <- c("plot", "d1994", "d2001", "d2006", "d2013")
   sum(yr23.w$d2013<0)
 
 
+ggplot(data=cover[cover$plot=="P324", ]) + 
+  geom_point(aes(x=year, y=cover)) + 
+  geom_smooth(method=lm, aes(x=year, y=cover), linetype=2, se=FALSE, color="black", size=0.5) + 
+  geom_text(aes(x=1994, y=75, label=paste("inund.q = ", round(q.inund, 0), sep=""))) + 
+  geom_text(aes(x=1994, y=63,  label=paste("pct.rank = ", q.rank.pct, sep=""))) + 
+  facet_wrap(~ plot)
 
 #### 2. SPECIES FREQUENCY ####
 
@@ -225,14 +256,14 @@ colnames(changes.cov) <- c("plot", "d1994", "d2001", "d2006", "d2013")
       #     print(plot.cur, max.levels=0)
       
       lmfit.cur <- lm(n.occ~year, data=occ[occ$species==sp.cur, ])
-      pval.cur  <- summary(lmfit.cur)$coefficients[2,4]
+      pval.cur  <- round(summary(lmfit.cur)$coefficients[2,4], 3)
             
       n.pos <- sum(diff(occ$n.occ[occ$species==sp.cur]) > 0)
       n.neg <- sum(diff(occ$n.occ[occ$species==sp.cur]) < 0)
       
       out.cur <- c(as.character(sp.cur), 
-                   lmfit.cur$coefficients[2], 
-                   ((summary(lmfit.cur))$r.squared), 
+                   round(lmfit.cur$coefficients[2], 3), 
+                   round(((summary(lmfit.cur))$r.squared), 3), 
                    pval.cur, 
                    n.pos, n.neg)
 
@@ -320,6 +351,241 @@ colnames(changes.cov) <- c("plot", "d1994", "d2001", "d2006", "d2013")
     sum(trends.occ$n.pos==2)  #30 of 107 spp
     sum(trends.occ$n.neg==2)  #33 of 107 spp
 
+#### 2B. UPDATE BASED ON JF CMTS FROM 2016-01-30 ####
+## Get an objective/standardized list of increasers and decreasers
+# Combine useful data in one place
+  # Merge in n.occ data, and all traits data
+    trends.occ <- merge(trends.occ, traits, by="species", all=TRUE)
+  # and succ.ind info  #succ.tr is from next section of script
+    trends.occ <- merge(trends.occ, succ.tr[, c("species", "succ.ind")], by="species", all.x=TRUE)
+  # And wetness index data (from later in script)
+    trends.occ <- merge(trends.occ, sp.ind[, c(1, 4)], by="species", all=TRUE)
+  # Rename n.occ column to avoid later confusion with yearly counts
+    trends.occ <- rename(trends.occ, n.occ.total=n.occ)
+
+# First criterion: at least 20 total occ
+  common.spp <- traits$species[traits$n.occ>=20]  #51 spp
+
+# Second criterion: trend over time is statistically significant
+  sum(trends.occ$pval<=0.05)  #only 11 of 107 spp
+  sum(trends.occ$pval<=0.10)  #brings it up to 23 spp
+  sig.spp <- trends.occ$species[trends.occ$pval<=0.1]
+
+# Third criterion: slope above some threshold
+  # Distribution of slope values across all spp
+  summary(abs(trends.occ$coef))
+  ggplot(data=trends.occ, aes(x=1, y=abs(coef))) + geom_boxplot()
+  # Or across only the 23 'significant' spp
+  summary(abs(trends.occ$coef[trends.occ$pval<=0.1]))
+  ggplot(data=trends.occ[trends.occ$pval<=0.1, ], aes(x=1, y=abs(coef))) + geom_point()
+  
+# Combine the first two criteria
+  # How many of the 'sig' spp also have at least 20 occ? 
+    trends.sig <- filter(trends.occ, pval<=0.1 & n.occ.total>=20)  #14 spp
+    #   trends.extrasig <- filter(trends.sig, pval<=0.05) #7 spp, so half of the 14 are highly sig.
+    trends.sig <- arrange(trends.sig, desc(coef))  #arrange in order of slope value
+
+# Add in third criterion?
+# --> All of the 14 spp have coefficients exceeding 0.5, with the exception of STAPAL. 
+#     I am going to retain this sp for now - so no slope criterion for now. 
+
+  # Add trends data to occ data for plotting
+    occ.withtr <- merge(occ, trends.occ, by="species", all=TRUE)
+
+# By these criteria, the increasing species:
+  trends.sig.pos <- filter(trends.sig, coef>0)  #n=9
+    # look at relevant columns only
+    trends.sig.pos[, c(1:4, 8, 10:11, 13:15)]
+  inc.spp <- trends.sig.pos$species
+  median(trends.sig.pos$succ.ind)
+  # Plots for each increasing species 
+  ggplot(data=occ.withtr[(occ.withtr$species %in% trends.sig.pos$species), ]) +
+    geom_point(aes(x=year, y=n.occ)) + 
+      geom_text(aes(x=1994, y=90, label=paste("coef=", coef, sep=""))) + 
+      geom_text(aes(x=1997, y=80, label=paste("r2=", r2, "; p=", pval, sep=""))) + 
+    facet_wrap(~species) 
+
+# The decreasing spp:
+  trends.sig.neg <- filter(trends.sig, coef<0)  #n=5
+    # look at relevant columns only
+    trends.sig.neg[, c(1:4, 8, 10:11, 13:15)]
+  dec.spp <- trends.sig.neg$species
+  mean(trends.sig.neg$succ.ind)
+  # Plots for each increasing species 
+  ggplot(data=occ.withtr[(occ.withtr$species %in% trends.sig.neg$species), ]) +
+    geom_point(aes(x=year, y=n.occ)) + 
+      geom_text(aes(x=1994, y=90, label=paste("coef=", coef, sep=""))) + 
+      geom_text(aes(x=1997, y=80, label=paste("r2=", r2, "; p=", pval, sep=""))) + 
+    facet_wrap(~species) 
+
+# Species that were previously (subjectively) identified as decreasing,
+# but don't appear in the new objective list:
+  dec.spp.lost <- c("CONCAN", "MUHRAC", "EUTOCC")
+
+  ggplot(data=occ.withtr[(occ.withtr$species %in% dec.spp.lost), ]) +
+    geom_point(aes(x=year, y=n.occ)) + 
+    geom_text(aes(x=2006, y=60, label=paste("coef=", coef, sep=""))) + 
+    geom_text(aes(x=2006, y=50, label=paste("r2=", r2, "; p=", pval, sep=""))) + 
+    facet_wrap(~species) 
+  
+  filter(trends.occ, species %in% dec.spp.lost)
+
+
+## Average successional index for a plot sample ##
+# Long form veg data
+  veg.long <- read.csv("WP_VegData_withCovertypeInundur_long.csv")
+  # Remove unneeded columns
+  veg.long <- select(veg.long, -c(dur.class, covertype, num.spp.rip))
+  # Add succ.ind data
+  veg.long <- merge(veg.long, succ.tr[, c("species", "succ.ind")], by="species", all=TRUE)
+  # Reorder
+  veg.long <- arrange(veg.long, year, plot, species)
+
+# Calculate mean succ.ind for a plot sample
+  by.plotsmp <- group_by(veg.long, year, plot, elevation, q.inund, inundur)
+  plotsmp.dat <- summarize(by.plotsmp,
+                           num.spp = max(num.spp.all),
+                           mean.succ.ind = mean(succ.ind, na.rm=TRUE)) #ignore spp with no index, still, calculate a value for that plot smp
+  rm(by.plotsmp)
+
+# Succ.ind as a func of inundur for each year
+  # Which inundur to use? Linear or exp weighting? Lambda?
+  # Read in the inundur data
+    inundurs.exp <- read.csv("Inundurations_lambdas_allyrs_all.csv")
+    inundurs.lin <- read.csv("Inundurations_linear_allyrs.csv")
+  # Combine plot veg data and inunduration data
+    # 50 yr inundur with no weighting; weak exp weighting (1e-4); and strong exp weighting (1e-1.5)
+    veg.inund <- merge(plotsmp.dat, inundurs.exp[, c(1,2,5, 16, 41)], 
+                       by=c("year", "plot"), all=TRUE)  
+    colnames(veg.inund)[8:10] <- c("no.wgt", "exp.e4", "exp.e1.5")
+    # Weak linear weighting (30 yr; this was most popular); and strong linear (5 yr)
+    veg.inund <- merge(veg.inund, inundurs.lin[, c("year", "plot", "inundur.30", "inundur.5")],
+                  by=c("year", "plot"), all=TRUE)
+    veg.inund <- rename(veg.inund, lin.30 = inundur.30, lin.5 = inundur.5)
+
+  # Now a series of plots, one for each inundur column
+    for (i in (c(5, 8:12))) {
+      plot.cur <- ggplot(data=veg.inund, aes(x=veg.inund[, i], y=mean.succ.ind)) + 
+        geom_point(aes(fill=num.spp), shape=21, size=3, color="black") + 
+        scale_fill_gradientn(colors=rainbow(7)) + 
+        ggtitle(colnames(veg.inund)[i]) + 
+        facet_wrap(~ year)
+      print(plot.cur)
+    }  
+
+  # What are all those red/orange plots with so few spp, esp in 2001?
+  onesp.plots <- filter(veg.long, num.spp.all==1) #12 plotsmp
+  twosp.plots <- filter(veg.long, num.spp.all==2) #19 plotsmp
+
+# Succ ind. vs plot cover
+  # Bring in cover data (\cover\ df created in part A)
+  veg.inund <- merge(veg.inund, cover[, c("year", "plot", "cover")],
+                     by=c("year", "plot"), all=TRUE)  
+  veg.inund$cover[veg.inund$cover<0] <- NA
+  
+  # And plot it
+  ggplot(data=veg.inund, aes(x=cover, y=mean.succ.ind)) + 
+    geom_point(aes(fill=num.spp), shape=21, size=3, color="black") + 
+    scale_fill_gradientn(colors=rainbow(7)) + 
+    ggtitle("Successional index vs Cover (color=spp richness)") + 
+    facet_wrap(~ year)
+
+  # The 3rd plot: cover ~ inundur
+  ggplot(data=veg.inund, aes(y=cover, x=exp.e4)) + 
+    geom_point(aes(fill=num.spp), shape=21, size=3, color="black") + 
+    scale_fill_gradientn(colors=rainbow(7)) + 
+    ggtitle("Cover vs Inundur (color=spp richness)") + 
+    facet_wrap(~ year)
+  
+  # Explore the low-cover/high-ind outlier plots
+  out.pl <- filter(veg.inund, year>1990, cover<15 & num.spp <=7 & mean.succ.ind>4)
+  out.spp<- merge(veg.long, out.pl[, c(1,2,5,7,13)],
+                  b7=c("year", "plot", "inundur"), all=FALSE)
+  sum(out.pl$inundur %in% wet.out$inundur)  
+
+# Succ ind vs spp richness
+  ggplot(data=veg.inund, aes(x=num.spp, y=mean.succ.ind)) + 
+    geom_point((aes(fill=exp.e4)), shape=21, size=3, color="black") +  #aes(fill=num.spp), 
+    scale_fill_gradientn(colors=rainbow(7), name="Inundur(exp.1e-4)") +   #colors=rainbow(7)
+    ggtitle("Successional index vs Species richness (color=inundur)") + 
+    facet_wrap(~ year)
+
+  # Investigate the uppper-right blue pts
+  wet.out <- filter(veg.inund, year>1990 & num.spp<=5 & exp.e4>0.5 & num.spp>0) 
+# And, though it's been done before, spp.richness vs inundur (exp.weak)
+  ggplot(data=veg.inund, aes(x=exp.e4, y=num.spp)) + 
+    geom_point((aes(fill=mean.succ.ind)), shape=21, size=3, color="black") +  #aes(fill=num.spp), 
+    scale_fill_gradientn(colors=rainbow(7), name="Mean.succ.ind") + 
+    ggtitle("Spp richness vs inundation duration (color=mean succ.ind)") + 
+    facet_wrap(~ year)
+
+# Distribution of succ.ind (plot sample mean) in each year
+  ggplot(data=veg.inund, aes(x=factor(year), y=mean.succ.ind)) + 
+  geom_boxplot()
+
+
+## Observed wetness index for each species: which end of the inundur gradient 
+## does the spp tend to occur at, in our dataset?
+## --> a spp wetness index
+  # Read in the inundur data [again]
+    inundurs.exp <- read.csv("Inundurations_lambdas_allyrs_all.csv")
+  # Aribtrarily pick a lm to use: 1e-4, col 16
+    veg.long <- merge(veg.long, inundurs.exp[, c(1,2,16)],
+                      by=c("year", "plot"), all=TRUE)
+    veg.long <- rename(veg.long, inundur.exp=inundur.0.0001, inundur.17yr=inundur)
+  # Calculate mean inundur across all occurrences, by species
+    by.sp <- group_by(veg.long, species)
+    sp.ind<- summarize(by.sp, 
+                       mean.exp = mean(inundur.exp),
+                       mean.17yr= mean(inundur.17yr))
+  # Reformulate as a percentile
+    # First remove 'none'
+    sp.ind <- sp.ind[sp.ind$species!="NONE", ]
+    sp.ind <- mutate(sp.ind, wet.ind=round(100*(rank(mean.exp)/length(mean.exp)), 0) )
+    # ! in this case, wetter species have a higher index - so 100 is for the wettest sp, 1 for the driest. 
+
+
+## Tendency for a given sp to be lost from a plot in which it has occurred
+# Loss/gain matrices
+  veg.loss <- read.csv("vegdata_loss.csv")
+  veg.gain <- read.csv("vegdata_gains.csv")
+
+# Losses
+  # Convert to long form
+  veg.loss.l <- melt(data=veg.loss, 
+                     id.vars=c("yr.2", "plot"), 
+                     variable.name="species", value.name="change")
+
+  # Count losses and remains by sp
+  by.sp <- group_by(veg.loss.l, species)
+  loss.sum <- summarize(by.sp,
+                        n.loss = sum(change==-1, na.rm=TRUE),
+                        n.stay = sum(change== 0, na.rm=TRUE),
+                        n.poss = sum(!is.na(change)), 
+                        pct.loss = n.loss/n.poss)
+  # Merge in succ.ind for these sp
+  loss.sum <- merge(loss.sum, succ.tr[, c(1,2,4,5,8)], by="species", all=TRUE)
+  # is pct loss related to succ.ind?
+  ggplot(data=loss.sum[loss.sum$n.poss>=20, ], aes(x=succ.ind, y=pct.loss)) +
+    geom_point(aes(color=n.poss), size=3)
+
+# Gains
+  # Convert to long form
+  veg.gain.l <- melt(data=veg.gain, 
+                     id.vars=c("yr.2", "plot"), 
+                     variable.name="species", value.name="change")
+
+  # Count losses and remains by sp
+  by.sp <- group_by(veg.gain.l, species)
+  gain.sum <- summarize(by.sp,
+                        n.gain = sum(change==-1, na.rm=TRUE),
+                        n.stay = sum(is.na(change)),  #num. of plots in which sp was present before
+                        pct.gain = n.gain/(n.gain + n.stay)) #what prop of sp occurrences were gains?
+  # Merge in succ.ind for these sp
+  gain.sum <- merge(gain.sum, succ.tr[, c(1,2,4,5,8)], by="species", all=TRUE)
+  # is pct gain related to succ.ind?
+  ggplot(data=gain.sum, aes(x=succ.ind, y=pct.gain)) +
+    geom_point()
 
 #### 3. SUCCESSIONAL TRENDS ####
 # Read in trait data
@@ -365,8 +631,8 @@ colnames(changes.cov) <- c("plot", "d1994", "d2001", "d2006", "d2013")
   #         [8, 12] -> 2 pts
   #         (12, ...)-> 3 pts
   succ.tr$succ.ind[succ.tr$height>=5 & succ.tr$height<8]   <- 1 + succ.tr$succ.ind[succ.tr$height>=5 & succ.tr$height<8]
-  succ.tr$succ.ind[succ.tr$height>=8 & succ.tr$height<=12] <- 2 + succ.tr$succ.ind[succ.tr$height>=8 & succ.tr$height<=12]
-  succ.tr$succ.ind[succ.tr$height>12] <- 3 + succ.tr$succ.ind[succ.tr$height>12]
+  succ.tr$succ.ind[succ.tr$height>=8] <- 2 + succ.tr$succ.ind[succ.tr$height>=8]  #& succ.tr$height<=12
+#   succ.tr$succ.ind[succ.tr$height>12] <- 3 + succ.tr$succ.ind[succ.tr$height>12]
 
   # Look at data for trend spp:
   filter(succ.tr[, c(1:5, 7:8)], species %in% dec.spp)
@@ -411,21 +677,41 @@ colnames(gains.byyr)[1] <- "yr.2"
 # *** COME BACK TO THIS ***#
 
 #### PHALARIS TRENDS ####
-# Sum total n.spp present in each plot sample
+# Sum total n.spp present in each plot sample  
+# Be careful!  If a num.spp column has already been added, resulting sums will be 2X appropriate size.
+# Probably better to merge in a more reliable count, rather than to recalculate it.  
   n.spp <- apply(X=veg[, 3:109], MARGIN=1, FUN=sum)
   veg <- cbind(veg, n.spp)
   veg <- veg[ c(1:2, 110, 3:109)]
   rm(n.spp)
 
+# Add [correct] n.spp to rawveg
+  rawveg <- merge(rawveg, plotsmp.dat[, c("year", "plot", "num.spp")],
+                       by=c("year", "plot"), all=TRUE)
+  
 # Select only PHAARU plots
   pha.smp <- filter(veg, PHAARU==1)
   table(pha.smp$year)   #should correspond to trend in PHAARU frequency of occ
 
+# How many plots have PHAARU present in all years?
+  by.plot <- group_by(veg, plot)
+#   by.plot.3 <- filter(by.plot, year>2000)
+  nyr.ph  <- summarize(by.plot, 
+                       n.yr = sum(PHAARU))
+
+  sum(nyr.ph$n.yr==5) #34 plots; meaning that 17 plots with PHAARU present in 1990 must have lost it for at least one yr.  
+  fiveyr.plots <- nyr.ph$plot[nyr.ph$n.yr==5]
+  threeyr.plots <- nyr.ph$plot[nyr.ph$n.yr==3]
+
+  pha.allyr <- filter(pha.smp, plot %in% fiveyr.plots)
+  # Mean num.spp in each year (within the 34 always-PHAARU plots)
+    tapply(pha.allyr$n.spp, pha.allyr$year, mean)
+
 # Plot of n.spp dist over time
-  ggplot(data=pha.smp) +
-    #   geom_boxplot(aes(x=factor(year), y=n.spp)) + 
-    geom_point(aes(x=factor(year), y=n.spp)) + 
-    ggtitle("Number of spp in plots with PHAARU")
+  ggplot(data=pha.smp[pha.smp$plot %in% fiveyr.plots, ]) +
+      geom_boxplot(aes(x=factor(year), y=n.spp)) + 
+#     geom_point(aes(x=factor(year), y=n.spp)) + 
+    ggtitle("Number of spp in plots in which PHAARU was always present (n=34)")
 
 # Vs. (control) plot of n.spp dist over time, ALL PLOTS
   ggplot(data=veg[veg$PHAARU==0, ]) +
@@ -446,7 +732,7 @@ colnames(gains.byyr)[1] <- "yr.2"
   rawveg <- cbind(n.spp, rawveg)
 
 ggplot(data=rawveg) +
-  geom_point(aes(x=q.inund, y=n.spp, color=factor(PHAARU))) +
+  geom_point(aes(x=q.inund, y=num.spp, color=factor(PHAARU))) +
   facet_wrap(~year) +
   ggtitle("Number of spp present vs. plot inundating discharge: 
           plots with and without PHAARU")
@@ -456,6 +742,13 @@ ggplot(data=rawveg) +
   aov(n.spp~factor(year), data=pha.smp)->pha.aov
   summary(pha.aov)
   TukeyHSD(pha.aov)
+
+ggplot(data=veg.inund, aes(x=cover, y=num.spp)) + 
+  geom_point(aes(fill=exp.e4), shape=21, size=3) +
+  scale_fill_gradientn(colors=rainbow(7)) +
+  facet_wrap(~year)
+scale_fill_gradientn(colors=rainbow(7), name="Mean.succ.ind") + 
+  
 
 #### SPP RICHNESS, Q.INUND, PCT COVER ####
 plotcov <- select(rawveg, year, plot, q.inund, num.spp.all, VEGETATIVE.COVER)   
@@ -481,7 +774,7 @@ ggplot(data=plotcov) +
   facet_wrap(~year)
 
 ggplot(data=rawveg) + 
-  geom_point(aes(x=num.spp.all, y=VEGETATIVE.COVER, color=as.factor(PHAARU))) + 
+  geom_point(aes(y=num.spp.all, x=VEGETATIVE.COVER, color=as.factor(PHAARU))) + 
   facet_wrap(~year)
 
 #### TRAITS AND EXPONENTIAL DECAY ####
