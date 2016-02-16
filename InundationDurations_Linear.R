@@ -9,6 +9,11 @@
 # 1. Time series discharge data, all possible years (50 yrs before 1st survey to yr of last survey)
   raw.flowdata <- read.csv("Gunn_DailyMeanCFS_WY1939-2013.csv")
 
+  # Add an index distinguish growing season months
+  months.all     <- as.numeric(substr(raw.flowdata$date, 6, 7))
+  months.all.ind <- (months.all > 4 & months.all < 10)
+  raw.flowdata  <- cbind(raw.flowdata, months.all.ind)
+  
 # 2. Inundating discharge data
   inundatingQs.df <- read.table("WP_InundatingDischarges.txt", 
                                 col.names=c("plot", "q.inund", "elevation", "unknown"))
@@ -21,12 +26,9 @@
   plotdata <- plotdata[plotdata$plot!="P999", ]  #...and get rid of P999
 
 
+  
 #### EXAMINE FLOW HISTORY ####
 ## Plot flow history for the period in question
-  months.all     <- as.numeric(substr(raw.flowdata$date, 6, 7))
-  months.all.ind <- (months.all > 4 & months.all < 10)
-  raw.flowdata  <- cbind(raw.flowdata, months.all.ind)
-
   surv.yrs <- c(1990, 1994, 2000, 2006, 2013)  #the set of survey years
 
   for(i in surv.yrs) {
@@ -99,56 +101,11 @@ inundur.lin <- function(year, length) {     #default values
 
 
 #### CALL THE FUNCTION TO CALCULATE INUNDUR ####
-## Two options: 
-## (A) Loop through sample years; or 
-## (B) Loop through pre-set lambda values.
-## !! Note that going back and forth between these options requires editing
-##    the end of the function code? (the part that sets column names in the output data frame.)
-
-
-# ## (A) Call the function for each sample year 
-# # The set of sample years 
-#   smp.yrs <- c(1990, 1994, 2001, 2006, 2013)
-# 
-# # Now, run the function once for each sample year 
-# # Output is new columns (one for each year) in the /inundurations/ df.
-# # The printed numbers in the console list the sample year, the start water 
-# #  year, and the end water year for each call of the inunduration function 
-# #  (to make sure that the function is in fact calculating inundation duration 
-# #  based on the correct data).
-#   for (i in 1:length(smp.yrs)) {
-#     inundur.exp(smp.yrs[i], length=50, lambda=0.001) -> inundurations
-#   }
-
-
-## (B) Call the function for each pre-set lambda value 
-# The set of lambda values 
-  # # 'Large' lambda values (... _LgLm_ ...)
-  #   lambdas <- c(0, 0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.003, 0.005, 
-  #                       0.007, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1)
-  
-  #   # 'Small' lambda values (... _SmLm_ ...)
-  #   # An exponential/geometric sequence between 1e-5 and 1e-3 (evenly distributed on log scale)
-  #   lambdas <- 10^(seq(from=-5, to=-3, by=0.1))
-
-  # 'All' lambda values (... _AllLm_ ...)
-  lambdas <- 10^(seq(from=-5, to=-1, by=0.1))  #10^-1=0.1, the endpoint of LargeLms
-  lambdas <- c(0, lambdas)  #42 lambda values!
-  
-  # Assess half-life of selected lambda values
-    halflife <- data.frame(cbind(decay.const=lambdas, halflife.indays=(log(2)/lambdas)))
-    halflife <- mutate(halflife, 
-                       halflife.inyrs=halflife.indays/365, 
-                       hundredth.indays=(log(100)/lambdas), 
-                       hundredth.inyrs=(log(100)/lambdas)/365)
-    halflife <- mutate(halflife, expo=log10(decay.const))
-    halflife <- halflife[, c(6, 1:5)]
-
+# The set of years and lambdas (rec.lengths)
   surv.yrs <- c(1990, 1994, 2001, 2006, 2013)
   rec.lengths <- c(1,2,3,4,5,7,10,12,15,17,20,25,30,35,40,45,50)
-  rec.lengths <- c(35,40,45,50)
 
-
+# Clean df to fill
   inundur.allyrs <- matrix(nrow=0, ncol=(4+length(rec.lengths)))  #4 data columns (including yr, to be assigned below), plus one column for each lambda value to be computed.
 
 ## Double-for loop to calculate inundurs with each lambda value, in 
@@ -173,24 +130,27 @@ inundur.lin <- function(year, length) {     #default values
       inundur.allyrs <- rbind(inundur.allyrs, inundurations)
   }
 
-
-
+# Fix up inundur.allyrs
+  # Move yr column to the front
+    inundur.allyrs <- inundur.allyrs[, c(ncol(inundur.allyrs), 1:(ncol(inundur.allyrs) - 1))] #move [year] column to the front
+  # Add a column for 50 year record, no weighting -> paste it in from flowhist.exp
+    flowhist.exp <- flowhist.exp <- read.csv("Inundurations_lambdas_allyrs_all.csv") #Inundation durations calculated with exponential weighting.
+    inundur.allyrs <- cbind(inundur.allyrs, inundur.inf=flowhist.exp[, "inundur.0"])
+    rm(flowhist.exp)
 
 ## Examine distribution of inundur values
-for (i in 1:(ncol(inundur.allyrs)-3)) {
-  print(i)
-  print(colnames(inundur.allyrs)[i+3])
-  hist(inundur.allyrs[, (i+3)], main=paste("AllYrs", colnames(inundur.allyrs)[i+3]))
-}
-
-# (inundur.allyrs$year==1990)
-
-# How many inundur=0 for each rec.length?
-apply(X=inundur.allyrs[, 5:21], MARGIN=2, FUN=function(x) sum(x==0))
+  for (i in 1:(ncol(inundur.allyrs)-3)) {
+    print(i)
+    print(colnames(inundur.allyrs)[i+3])
+    hist(inundur.allyrs[, (i+3)], main=paste("AllYrs", colnames(inundur.allyrs)[i+3]))
+  }
+  
+  # (inundur.allyrs$year==1990)
+  
+  # How many inundur=0 for each rec.length?
+  apply(X=inundur.allyrs[, 5:21], MARGIN=2, FUN=function(x) sum(x==0))
 
 #### WRITE OUTPUT FILE ####
-  inundur.allyrs <- inundur.allyrs[, c(ncol(inundur.allyrs), 1:(ncol(inundur.allyrs) - 1))] #move [year] column to the front
-
   write.csv(inundur.allyrs, "Inundurations_linear_allyrs.csv", row.names=FALSE)
 
 
