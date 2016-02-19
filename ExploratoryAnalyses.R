@@ -533,11 +533,13 @@ ggplot(data=cover[cover$plot=="P324", ]) +
     veg.long <- merge(veg.long, inundurs.exp[, c(1,2,16)],
                       by=c("year", "plot"), all=TRUE)
     veg.long <- rename(veg.long, inundur.exp=inundur.0.0001, inundur.17yr=inundur)
-  # Calculate mean inundur across all occurrences, by species
+  # Calculate mean inundur and inund.q across all occurrences, by species
     by.sp <- group_by(veg.long, species)
     sp.ind<- summarize(by.sp, 
                        mean.exp = mean(inundur.exp),
-                       mean.17yr= mean(inundur.17yr))
+                       mean.17yr= mean(inundur.17yr),
+                       med.exp = median(inundur.exp), 
+                       med.qinund = median(q.inund))
   # Reformulate as a percentile
     # First remove 'none'
     sp.ind <- sp.ind[sp.ind$species!="NONE", ]
@@ -793,3 +795,99 @@ ggplot(data=mod.spp, aes(x=lm.exp, y=annual.tend)) + geom_point()
 lglmspp <- c("ARTLUD", "FESARU", "LACSER", "OENVIL", "SOLVEL", "TRADUB")
 zerolmspp <- c("AGRGIG", "CARLAN", "CARNEB", "ELEMAC", "EPICIL", "EQUARV", "NEGACE", "CHASER")
 filter(mod.spp, species %in% zerolmspp)
+
+
+#### TRAITS VS LAMBDA: UPDATE FOLLOWING JF COMMENTS ####
+## Compare selected rec.lengths when no weighting is included as an option
+# Combine 50 occ and 20 occ
+  best.lin <- rbind(best.50, best.20)
+  best.lin.mods <- filter(best.lin, or2.nag>=0.1)
+  table(list(best.lin.mods$transformation, best.lin.mods$lambda))
+
+  bestrow <- function(df, criterion){
+    row.cur <- df[which.max(df[, criterion]), ]
+    return(row.cur)
+  }
+  sp.list <- split(best.lin, f=best.lin$species)
+  row.list<- lapply(X=sp.list, FUN=bestrow, criterion="or2.nag")
+  bestmods<- do.call(rbind, row.list)
+
+## New verison of rec.length vs succ.ind:
+## - include all spp with at least 20 occ
+## - limit the plot to model fits (r2) of at least 0.1
+## - label each point with spp code
+## - add jitter to help with [potential] overplotting
+
+# Compare 'lambda' with successional traits (use P/A, all >20 occ)
+  n.years.50 <- best.50[best.50$transformation=="sqrt", c("species", "lambda", "or2.nag")]
+  n.years.20 <- best.20[best.20$transformation=="sqrt", c("species", "lambda", "or2.nag")]
+  n.years <- rbind(n.years.50, n.years.20)
+  # Convert "Inf"/100 lambda values to '60' for better plotting
+  n.years$lambda[n.years$lambda==60] <- "Inf"
+  n.years$lambda <- as.numeric(n.years$lambda)
+  lin.traits <- merge(succ.tr, n.years, by="species", all.x=FALSE, all.y=TRUE) #use succ.tr from ExploratoryAnalyses.R
+  # now add median.q.inund
+  lin.traits <- merge(lin.traits, sp.ind, by="species", all.x=TRUE, all.y=FALSE)
+
+# Plot
+  traits.sub <- filter(lin.traits, or2.nag>=0.1)
+
+  nameplot <- ggplot(data=traits.sub, aes(x=succ.ind, y=lambda)) +
+    geom_point(aes(color=rhizomes), position="jitter", size=3) +
+    geom_text(aes(label=species), position="jitter", size=2.5) +
+    ylab("record length (yrs), lin weighting") +
+    xlab("successional index")
+
+# Print a big output file for JF to look at
+  pdf(file=paste(DirOut, "test_SuccIndvsRecLngth_6.pdf", sep=""), height=12, width=12)
+  nameplot
+  dev.off()
+
+
+## Species median inundur
+  # df combining sp traits and lambda from best fit linear mod (any trans)
+  lin.traits <- merge(succ.tr, bestmods[, c("species", "lambda", "or2.nag", "transformation")], 
+                      by="species", 
+                      all.x=FALSE, all.y=TRUE) #use succ.tr from ExploratoryAnalyses.R
+  # now add median.q.inund
+  lin.traits <- merge(lin.traits, sp.ind, by="species", all.x=TRUE, all.y=FALSE)
+
+  
+  # The plot, with all spp >= 20.occ
+  ggplot(data=lin.traits, aes(x=med.qinund, y=lambda)) + 
+  geom_point(aes(fill=factor(succ.ind)), shape=21, size=3)
+
+ggplot(data=bestmods, aes(x=))
+
+  # Now including only model fits of at least 0.1
+  med.q <-  ggplot(data=lin.traits[lin.traits$or2.nag>=0.1, ], 
+                   aes(x=med.qinund, y=lambda)) + 
+    #   scale_fill_gradientn(colors=rainbow(6)) +
+    geom_point(aes(fill=factor(succ.ind)), shape=21, size=4) +
+    ylab("record length (yrs), lin weighting") +
+    xlab("Median inundating discharge of plots where species was present") +
+    scale_fill_discrete(name="Successional\nindex") + 
+    ggtitle("Linear weighting, any transformation
+  species with at least 20 occurrences and r2 of at least 0.1") + 
+    geom_text(aes(y=lambda-1, label=species), size=2.5, position="jitter")
+
+pdf(file=paste(DirOut, "test_medq_1.pdf", sep=""), height=12, width=12) 
+med.q
+dev.off()
+
+## How robust is rec.length to transformation?
+  best.lin$lambda[best.lin$lambda=="Inf"] <- 60
+  # wide form for the different transformations
+  lin.trans <- dcast(best.lin, species ~ transformation, value.var="lambda")
+  lin.trans <- mutate(lin.trans,
+                      diff.base = sqrt-base,
+                      diff.log = sqrt-log,
+                      diff.bl = base-log)
+  lin.trans$max.diff <- apply(X=abs(lin.trans[, 5:7]), MARGIN=1, FUN=max)
+  lin.trans <- arrange(lin.trans, desc(max.diff))
+
+  # merge in best r2 value from bestmods (note that here we won't know which trans it applies to)
+  lin.trans <- merge(lin.trans, bestmods[, c("species", "or2.nag", "transformation")],
+                     by="species", all=TRUE)
+  lin.trans.sub <- filter(lin.trans, or2.nag>=0.1)
+  lin.trans.sub <- arrange(lin.trans.sub, desc(max.diff))
