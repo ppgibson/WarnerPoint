@@ -40,9 +40,9 @@
 
 #### COMPARE TRANSFORMATIONS ####
 # Read in different versions of \bestmodels\
-  best.50 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Seas_AllTran_50occ_IncCur.csv", sep=""))
+  best.50 <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_PA_Dyn_Lin_AllTran_50occ.csv", sep=""))
   bestmodels <- best.50
-  best.20 <- read.csv(paste(DirOut, "MFStats_PA_Dyn_Seas_AllTran_20occ_IncCur.csv", sep=""))
+  best.20 <- read.csv(paste(DirOut, "LinearWeighting_AllTrans\\MFStats_PA_Dyn_Lin_AllTran_20occ.csv", sep=""))
   bestmodels <- best.20
   best.gain <- read.csv(paste(DirOut, "MFStats_Gain_Dyn_Seas_AllTran_20occ_IncCur.csv", sep=""))
   bestmodels <- best.gain
