@@ -14,7 +14,7 @@
 # Possible transformation variables (note more could be added later...)
   trans.options <- c("base", "sqrt", "log")
 # Weighting of inundation durations (**choose one)
-  weighting.cur <- "seas"
+  weighting.cur <- "lin"
 
 # Create empty data frame to be filled - same column structure as lmloop
   bestmodels <- data.frame(species=character(), lambda=character(), n.occ=double(), model=character(), 
@@ -58,7 +58,7 @@
                                trans=trans.cur, 
                                weighting=weighting.cur, 
                                mod.type=model.type, 
-                               exclude.130=FALSE)
+                               max.q=12000)  #no outlier plots excluded
       
       # Arrange the model plot and lambda plot side by side
       twopanel <- arrangeGrob(newspmodel$fitplot, out.cur$lmplot, ncol=2)
@@ -73,7 +73,7 @@
 
 
 # To print a PDF: 
-  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Seas_AllTran_20occ_IncCur.pdf", sep=""), 
+  pdf(file=paste(DirOut, "MFPlots_PA_Dyn_Lin_AllTran_20occ.pdf", sep=""), 
       width=14, height=18)
 
   #(run the for loop)
@@ -83,7 +83,7 @@
 
 # To print a data file:
   write.csv(bestmodels, 
-            paste(DirOut, "MFStats_Loss_Dyn_Seas_AllTran_20occ_IncCur.csv", sep=""), 
+            paste(DirOut, "MFStats_PA_Dyn_Lin_AllTran_20occ.csv", sep=""), 
             row.names=FALSE)
 
 ## For code to compare/evaluate models, go to < ModelEvaluations.R >
