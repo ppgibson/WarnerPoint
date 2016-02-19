@@ -21,7 +21,7 @@
   flowhist.lin <- read.csv("Inundurations_linear_allyrs.csv")      #Inundation durations calculated with linear weighting.
   flowhist.sea <- read.csv("Inundurations_seasonal_allyrs_IncCurSeas.csv")  #Inundation durations calculated with seasonal exponential weigthting, current season is included.
 #   flowhist.sea.nocur <- read.csv("Inundurations_seasonal_allyrs_NoCurSeas.csv")
-  flowhist <- flowhist.sea   #!!Choose one (or read in/replace it with something else). 
+  flowhist <- flowhist.lin   #!!Choose one (or read in/replace it with something else). 
 #   flowhist <- flowhist.sea.nocur
 
   lambdas <- as.numeric(substr(colnames(flowhist), 9, 21))[5:ncol(flowhist)]
@@ -71,14 +71,14 @@
 
 #### TEST CODE ####
 # calcmodels (fit one sp/lm combination)
-  calcmod.test <- calcmodels(sp.cur="CARLAN", lm.cur=lambdas[32], 
-                             trans="base", weighting="seas", 
-                             mod.type=model.type, exclude.130=FALSE)
+  calcmod.test <- calcmodels(sp.cur="CARLAN", lm.cur=lambdas[18], 
+                             trans="sqrt", weighting="lin", 
+                             mod.type=model.type, max.q=12000)
     calcmod.test$fitplot 
     calcmod.test$param
 
 # picklambda (try all lm values for one sp, find the best one)
-  picklm.test <- picklambda(species="CARLAN", transformation="base", weights="seas")  #!note that changing the 'weights' argument only changes how the plot is labeled - in order to change underlying data, you need to change the data stored as \flowhist\.
+  picklm.test <- picklambda(species="CARLAN", transformation="base", weights="seas", max.q=12000)  #!note that changing the 'weights' argument only changes how the plot is labeled - in order to change underlying data, you need to change the data stored as \flowhist\.
     picklm.test$lmplot
     picklm.test$spdata
 
